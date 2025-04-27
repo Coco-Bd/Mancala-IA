@@ -98,6 +98,9 @@ class BaseScreen:
         self.quit_button.draw(self.screen)
         self.menu_button.draw(self.screen)
         
+    def draw_screen(self):
+        """Base draw method to be overridden by child classes"""
+        pass
     def run(self):
         """Base run method to be overridden by child classes"""
         clock = pygame.time.Clock()
@@ -108,10 +111,15 @@ class BaseScreen:
                 result = self.handle_common_events(event)
                 if result:
                     return result
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    pos = pygame.mouse.get_pos()
+                    for button in self.buttons:
+                        if button.rect.collidepoint(pos):
+                            button.action()
             
             # Clear the screen
             self.screen.fill(self.Beige)
-            
+            self.draw_screen()
             # Draw common elements
             self.draw_common_elements()
             
