@@ -58,9 +58,6 @@ class MenuScreen(BaseScreen):
                     for button in self.buttons:
                         if button.rect.collidepoint(pos):
                             return button.action()
-            result = None
-            if result:
-                return result
             
             # Clear the screen
             self.screen.fill(self.Beige)

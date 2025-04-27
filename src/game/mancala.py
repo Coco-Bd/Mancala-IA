@@ -1,54 +1,47 @@
-import pandas as pd
+import numpy as np
 
-class MancalaBoard:
+class MancalaPlatter:
     """Classe représentant le plateau du jeu Mancala."""
     
     def __init__(self):
         """Initialise un nouveau plateau de jeu Mancala."""
         # 6 trous + 1 kalaha par joueur
-        self.board = pd.DataFrame([[4] * 6 + [0], [4] * 6 + [0]], index=["player1", "player2"], columns=range(7))
+        self.board = np.array([4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0])
         self.current_player = "player1"
-        self.game_over = False
+        self.finish_game = False
 
     def __str__(self):
         """Retourne une représentation textuelle du plateau."""
         return str(self.board)
 
-
-    def make_move(self, pit_index):
+    def make_move(self, index):
         """Effectue un coup à partir du trou sélectionné."""
-        if self.game_over or pit_index not in range(6) or self.board.loc[self.current_player, pit_index] == 0:
+        if self.finish_game or index not in range(12) or self.board[index] == 0:
             return
-
-        self.make_move_helper(pit_index)
+        self.make_move_helper(index)
 
     def make_move_helper(self,index):
-        actual_player = self.current_player
-        other_player = "player2" if self.current_player == "player1" else "player1"
-        stones = self.board.loc[self.current_player, index]
-        self.board.loc[self.current_player, index] = 0
+        stones = self.board[index]
+        self.board[index] = 0
         while stones > 0:
-            if index == 6:
-                index = -1
-                self.current_player = "player2" if self.current_player == "player1" else "player1"
-            index += 1
-            if index == 6 and self.current_player == other_player: ##metre l'index du tableau peut-etre (player 2 si on n'est usr cette case)
+            index = (index + 1) % 14
+            if (index == 7 and self.current_player == "player2") or(index == 14 and self.current_player == "player1"): ##metre l'index du tableau peut-etre (player 2 si on n'est usr cette case)
                 continue
-            self.board.loc[self.current_player, index] += 1
-            stones -= 1
-
-
+            else:
+                self.board[index] += 1
+                stones -= 1
         # Capture si la dernière graine tombe dans un trou vide du joueur actuel
-        if index < 6 and self.board.loc[actual_player, index] == 1 and self.board.loc[other_player, 5 - index] > 0:
-            self.board.loc[actual_player, 6] += self.board.loc[other_player, 5 - index] + 1
-            self.board.loc[actual_player, index] = 0
-            self.board.loc[other_player, 5 - index] = 0
+        oponent_index = 12 - index
+        if (index < 6 and self.board[index] == 1 and self.board[oponent_index] > 0 and self.current_player == "player1"):
+            self.board[6] += self.board[oponent_index] + 1
+            self.board[index] = 0
+            self.board[oponent_index] = 0
         # Vérifier si le jeu est terminé
-        if self.board.loc[actual_player, :6].sum() == 0 or self.board.loc[other_player, :6].sum() == 0:
-            self.game_over = True
+        if self.board[:6].sum() == 0 or self.board[7:14].sum() == 0:
+            self.finish_game = True
         # Changer de joueur sauf si la dernière graine tombe dans son propre kalaha
-        if index != 6:
-            self.current_player = other_player
+        if index != 6 or index != 13:
+            self.current_player = "player2" if self.current_player == "player1" else "player1"
 
 
 
