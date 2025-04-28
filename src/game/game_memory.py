@@ -1,154 +1,100 @@
 import sqlite3
-import json
 import os
-import datetime
-import pandas as pd
+from pathlib import Path
 
 class GameMemory:
-    def __init__(self, db_path="../../db/mancala_ai.db", context_length=2):
-        """Initialize connection to the game memory database"""
-        # Adjust the path to point to the db in the project root
-        self.db_path = os.path.join(os.path.dirname(__file__), db_path)
-        self.context_length = context_length  # How many previous moves to consider
+    """Gère l'enregistrement et la récupération des données de jeu."""
+    
+    def __init__(self, db_path=None):
+        """
+        Initialise la connexion à la base de données de mémoire de jeu.
+        
+        Args:
+            db_path: Chemin vers la base de données (facultatif)
+        """
+        if db_path is None:
+            # Chemin par défaut relatif au dossier du projet
+            base_dir = Path(__file__).parent.parent.parent
+            self.db_path = os.path.join(base_dir, "db", "mancala_ai.db")
+        else:
+            self.db_path = db_path
+            
+        # S'assurer que le répertoire de la base de données existe
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        
         self._initialize_db()
     
     def _initialize_db(self):
-        """Set up the database table if it doesn't exist"""
+        """Configure la table de base de données si elle n'existe pas."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Single table for game patterns
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS game_patterns (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            board_state TEXT,
-            move INTEGER,
-            resulted_in_win INTEGER,
-            play_count INTEGER DEFAULT 1
-        )
-        """)
-        
-        # Table for move sequences
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS move_sequences (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            move_sequence TEXT,
-            winner TEXT,
-            play_count INTEGER DEFAULT 1
-        )
-        """)
-        
-        # Table for move responses
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS move_responses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            previous_moves TEXT,
-            response_move INTEGER,
-            resulted_in_win INTEGER,
-            play_count INTEGER DEFAULT 1
-        )
-        """)
-        
-        # Table for games
+        # Table simple pour les jeux
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS games (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            moves TEXT,
-            winner TEXT,
+            moves TEXT,         -- Chaîne simple comme "4;8;2;9;5;7"
+            winner TEXT,        -- "player1" ou "player2"
             count INTEGER DEFAULT 1
         )
         """)
+        
+        # Créer un index pour des recherches plus rapides
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_moves ON games(moves)")
         
         conn.commit()
         conn.close()
     
     def store_game(self, moves, winner):
-
+        """
+        Enregistre une partie terminée dans la base de données.
+        
+        Args:
+            moves: Liste des coups joués
+            winner: Le joueur gagnant ("player1" ou "player2")
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Convert moves to a simple string like "4;8;2;9"
+        # Convertir les coups en une chaîne simple comme "4;8;2;9"
         moves_str = ";".join(map(str, moves))
         
-        # Check if we've seen this exact game before
+        # Vérifier si nous avons déjà vu cette partie exacte
         cursor.execute("SELECT id, count FROM games WHERE moves = ?", (moves_str,))
         result = cursor.fetchone()
         
         if result:
-            # Update count for this game
+            # Mettre à jour le nombre d'occurrences pour cette partie
             game_id, count = result
             cursor.execute("UPDATE games SET count = ? WHERE id = ?", (count + 1, game_id))
         else:
-            # Store new game
+            # Enregistrer une nouvelle partie
             cursor.execute("INSERT INTO games (moves, winner, count) VALUES (?, ?, 1)", 
                           (moves_str, winner))
         
         conn.commit()
         conn.close()
     
-    def find_best_move(self, board_state):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        board_state_str = json.dumps(board_state)
-        
-        # Find moves from this state and their win rates
-        cursor.execute("""
-        SELECT move, resulted_in_win, play_count,
-               CAST(resulted_in_win AS FLOAT) / play_count AS win_rate
-        FROM game_patterns
-        WHERE board_state = ?
-        ORDER BY win_rate DESC, play_count DESC
-        """, (board_state_str,))
-        
-        results = cursor.fetchall()
-        conn.close()
-        
-        # Return the move with the highest win rate, if any
-        if results:
-            best_move = results[0][0]
-            return best_move
-        
-        return None
-    
-    def find_best_response(self, previous_moves):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Take only the last N moves for context
-        context = previous_moves[-self.context_length:] if len(previous_moves) >= self.context_length else previous_moves
-        context_json = json.dumps(context)
-        
-        # Find responses for this context and their win rates
-        cursor.execute("""
-        SELECT response_move, resulted_in_win, play_count,
-               CAST(resulted_in_win AS FLOAT) / play_count AS win_rate
-        FROM move_responses
-        WHERE previous_moves = ?
-        ORDER BY win_rate DESC, play_count DESC
-        """, (context_json,))
-        
-        results = cursor.fetchall()
-        conn.close()
-        
-        # Return the move with the highest win rate, if any
-        if results:
-            best_move = results[0][0]
-            return best_move
-        
-        return None
-    
     def find_similar_game(self, current_moves):
+        """
+        Recherche une partie similaire dans l'historique.
+        
+        Args:
+            current_moves: Coups joués jusqu'à présent
+            
+        Returns:
+            int ou None: Le prochain coup suggéré ou None si aucune correspondance
+        """
         if not current_moves:
             return None
         
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Convert current moves to string
+        # Convertir les coups actuels en chaîne
         current_str = ";".join(map(str, current_moves))
         
-        # Look for games that start with the same sequence
+        # Rechercher des parties qui commencent par la même séquence
         search_pattern = current_str + "%"
         cursor.execute("""
         SELECT moves, winner, count FROM games 
@@ -163,56 +109,21 @@ class GameMemory:
         if not results:
             return None
         
-        # Find winning games for the current player's side
-        current_player = "player1" if 0 <= current_moves[-1] <= 5 else "player2"
-        next_player = "player2" if current_player == "player1" else "player1"
+        # Déterminer le joueur actuel basé sur le dernier coup
+        current_player = "player1" if len(current_moves) % 2 == 0 else "player2"
         
         winning_moves = []
         for moves_str, winner, count in results:
-            if winner == next_player:  # Find games where the next player won
-                # Extract the next move from this winning game
+            if winner == current_player:  # Trouver des parties où le joueur actuel a gagné
+                # Extraire le prochain coup de cette partie gagnante
                 all_moves = moves_str.split(";")
                 if len(all_moves) > len(current_moves):
                     next_move = int(all_moves[len(current_moves)])
                     winning_moves.append((next_move, count))
         
         if winning_moves:
-            # Choose the most common winning next move
+            # Choisir le coup suivant gagnant le plus courant
             winning_moves.sort(key=lambda x: x[1], reverse=True)
             return winning_moves[0][0]
         
         return None
-    
-    def get_statistics(self):
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT COUNT(*) FROM game_patterns")
-        pattern_count = cursor.fetchone()[0]
-        
-        cursor.execute("""
-        SELECT COUNT(DISTINCT board_state) FROM game_patterns
-        """)
-        unique_positions = cursor.fetchone()[0]
-        
-        cursor.execute("""
-        SELECT SUM(play_count) FROM game_patterns
-        """)
-        total_moves = cursor.fetchone()[0] or 0
-        
-        cursor.execute("SELECT COUNT(*) FROM move_sequences")
-        sequence_count = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM move_responses")
-        response_count = cursor.fetchone()[0]
-        
-        conn.close()
-        
-        return {
-            "pattern_count": pattern_count,
-            "unique_positions": unique_positions,
-            "total_moves": total_moves,
-            "sequence_count": sequence_count,
-            "response_count": response_count
-        }

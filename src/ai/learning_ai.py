@@ -1,55 +1,105 @@
 import random
 from src.game.game_memory import GameMemory
+from src.ai.base_ai import BaseAI
 
-class LearningAI:
-    def __init__(self, player_name="AI"):
-        """Initialize the learning AI player"""
-        self.name = player_name
+class LearningAI(BaseAI):
+    """IA avancée qui apprend des parties précédentes et applique des stratégies."""
+    
+    def __init__(self, player="player2"):
+        """Initialise l'IA apprenante."""
+        super().__init__(player)
         self.memory = GameMemory()
-        self.current_game = []  # Just store the moves
+    
+    def choose_move(self, mancala):
+        """
+        Détermine le meilleur coup à jouer en fonction de l'état actuel du jeu.
         
-    def get_move(self, board, player):
-        """Decide on a move based on the current game state"""
-        # First, try to find a similar game from memory
+        Args:
+            mancala: L'instance du plateau de jeu Mancala
+            
+        Returns:
+            int: L'index du coup à jouer
+        """
+        # D'abord, essayer de trouver un coup similaire dans la mémoire
         next_move = self.memory.find_similar_game(self.current_game)
         
-        # Check if the suggested move is valid
+        # Vérifier si le coup suggéré est valide
         if next_move is not None:
-            if player == "player1" and 0 <= next_move <= 5 and board[next_move] > 0:
+            if self.player == "player1" and 0 <= next_move <= 5 and mancala.board[next_move] > 0:
+                self.current_game.append(next_move)
                 return next_move
-            elif player == "player2" and 7 <= next_move <= 12 and board[next_move] > 0:
+            elif self.player == "player2" and 7 <= next_move <= 12 and mancala.board[next_move] > 0:
+                self.current_game.append(next_move)
                 return next_move
         
-        # Fallback to basic strategy
-        return self._choose_fallback_move(board, player)
+        # Utiliser une stratégie de repli si aucun coup n'est trouvé dans l'historique
+        move = self._choose_strategic_move(mancala)
+        if move >= 0:
+            self.current_game.append(move)
+            
+        return move
     
-    def update_last_move_result(self, board):
-        """Not needed for this simple implementation"""
-        pass
+    def _choose_strategic_move(self, mancala):
+        """
+        Choisit un coup stratégique lorsque l'historique ne fournit pas de suggestion.
+        
+        Args:
+            mancala: L'instance du plateau de jeu Mancala
+            
+        Returns:
+            int: L'index du coup à jouer
+        """
+        valid_moves = []
+        
+        # Déterminer les trous valides selon le joueur
+        if self.player == "player1":
+            well_range = range(0, 6)
+        else:  # player2
+            well_range = range(7, 13)
+        
+        # 1. D'abord, chercher un coup qui donne un tour supplémentaire
+        for i in well_range:
+            if mancala.board[i] > 0:
+                # Calculer où la dernière graine atterrira
+                distance = mancala.board[i]
+                landing = (i + distance) % 14
+                
+                # Vérifier si le dernier grain tombe dans le kalaha du joueur
+                if (self.player == "player1" and landing == 6) or \
+                   (self.player == "player2" and landing == 13):
+                    return i
+                
+                # Ajouter aux coups valides pour une sélection ultérieure
+                valid_moves.append(i)
+        
+        # 2. Ensuite, essayer de maximiser le nombre de graines collectées
+        best_score = -1
+        best_move = -1
+        
+        for move in valid_moves:
+            # Simple heuristique: préférer les puits avec plus de graines
+            score = mancala.board[move]
+            if score > best_score:
+                best_score = score
+                best_move = move
+        
+        if best_move >= 0:
+            return best_move
+        
+        # 3. Enfin, choisir un coup aléatoire parmi les valides
+        if valid_moves:
+            return random.choice(valid_moves)
+        
+        return -1
     
     def record_game_result(self, winner):
-        """Record the completed game to the database"""
+        """
+        Enregistre le résultat d'une partie terminée.
+        
+        Args:
+            winner: Le joueur qui a gagné ("player1" ou "player2")
+        """
         if self.current_game:
             self.memory.store_game(self.current_game, winner)
-            # Reset for the next game
-            self.current_game = []
-    
-    def _choose_fallback_move(self, board, player):
-        """Choose a move when no historical data is available"""
-        if player == "player1":
-            valid_moves = [i for i in range(6) if board[i] > 0]
-        else:  # player2
-            valid_moves = [i for i in range(7, 13) if board[i] > 0]
-        
-        if not valid_moves:
-            return None
-            
-        # First, try to find a move that gives an extra turn
-        for move in valid_moves:
-            if player == "player1" and board[move] == 6 - move:  # Will end in player's store
-                return move
-            elif player == "player2" and board[move] == 13 - move:  # Will end in player's store
-                return move
-                
-        # Otherwise, choose a random valid move
-        return random.choice(valid_moves)
+            # Réinitialiser pour la prochaine partie
+            super().record_game_result(winner)

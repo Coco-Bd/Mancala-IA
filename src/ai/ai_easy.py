@@ -1,20 +1,25 @@
 import random
-import sqlite3
-import numpy as np
-import os
-from pathlib import Path
 from src.game.game_memory import GameMemory
+from src.ai.base_ai import BaseAI
 
-class AIEasy:
+class AIEasy(BaseAI):
+    """IA simple qui utilise l'historique ou joue aléatoirement."""
+    
     def __init__(self, player="player2"):
-        self.player = player
+        """Initialise l'IA facile."""
+        super().__init__(player)
         self.memory = GameMemory()
-        self.current_game = []  # Pour enregistrer les coups de la partie en cours
     
     def choose_move(self, mancala):
-        # Enregistrer l'état actuel
-        current_board = mancala.board.copy()
+        """
+        Choisit le meilleur coup basé sur l'historique ou aléatoirement.
         
+        Args:
+            mancala: L'instance du plateau de jeu Mancala
+            
+        Returns:
+            int: L'index du coup à jouer
+        """
         # D'abord, rechercher un coup basé sur les parties gagnées précédentes
         move = self.memory.find_similar_game(self.current_game)
         
@@ -22,22 +27,29 @@ class AIEasy:
         if move is not None:
             # Vérifier que le coup est valide pour le joueur actuel
             if self.player == "player1" and 0 <= move <= 5 and mancala.board[move] > 0:
-                # Enregistrer ce coup dans l'historique de la partie en cours
                 self.current_game.append(move)
                 return move
             elif self.player == "player2" and 7 <= move <= 12 and mancala.board[move] > 0:
-                # Enregistrer ce coup dans l'historique de la partie en cours
                 self.current_game.append(move)
                 return move
         
         # Sinon, choisir un coup aléatoire
         move = self._choose_random_move(mancala)
         if move >= 0:
-            # Enregistrer ce coup dans l'historique de la partie en cours
             self.current_game.append(move)
+            
         return move
     
     def _choose_random_move(self, mancala):
+        """
+        Choisit un coup aléatoire parmi les coups valides.
+        
+        Args:
+            mancala: L'instance du plateau de jeu Mancala
+            
+        Returns:
+            int: L'index du coup à jouer
+        """
         valid_moves = []
         
         # Déterminer les trous valides selon le joueur
@@ -59,8 +71,13 @@ class AIEasy:
         return -1
     
     def record_game_result(self, winner):
+        """
+        Enregistre le résultat d'une partie terminée.
+        
+        Args:
+            winner: Le joueur qui a gagné ("player1" ou "player2")
+        """
         if self.current_game:
-            # Utiliser la méthode store_game de GameMemory
             self.memory.store_game(self.current_game, winner)
             # Réinitialiser pour la prochaine partie
-            self.current_game = []
+            super().record_game_result(winner)

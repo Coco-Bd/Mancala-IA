@@ -12,8 +12,8 @@ class SettingsScreen(BaseScreen):
         
         # Configuration options
         self.options = [
-            {"name": "Player 1", "options": ["Human", "AI"], "current": 0},
-            {"name": "Player 2", "options": ["Human", "AI"], "current": 0},
+            {"name": "Player 1", "options": ["Human", "Easy AI","Learning AI"], "current": 0},
+            {"name": "Player 2", "options": ["Human", "Easy AI","Learning AI"], "current": 0},
         ]
         
         self.selected_option = 0
@@ -34,8 +34,8 @@ class SettingsScreen(BaseScreen):
         
         # Description of options (appears on hover)
         self.descriptions = {
-            "Player 1": "Set the first player as human or AI",
-            "Player 2": "Set the second player as human or AI",
+            "Player 1": "Set the first player as human or easy AI or learning AI",
+            "Player 2": "Set the second player as human or easy AI or learning AI",
         }
         
         # Currently hovered option
@@ -325,7 +325,7 @@ class SettingsScreen(BaseScreen):
         settings = {}
         for option in self.options:
             option_name = option["name"].lower().replace(" ", "_")
-            option_value = option["options"][option["current"]]
+            option_value = option["options"][option["current"]].replace(" ", "_")
             settings[option_name] = option_value
 
         # Save to a JSON file

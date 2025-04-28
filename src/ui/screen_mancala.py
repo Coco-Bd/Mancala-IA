@@ -12,9 +12,16 @@ class MancalaScreen(BaseScreen):
         super().__init__(screen, screen_width, screen_height)
         pygame.display.set_caption("Mancala")
         self.mancala = MancalaPlatter()
-        self.ai_game = AIGame(self.mancala)
         self.player_selector = PlayerSelector(self.mancala)
         self.player_selector.check_player_type()
+
+        # Choisir le type d'IA selon les paramètres  # Par défaut, utiliser l'IA avancée
+        # Vous pouvez ajouter une option dans les paramètres pour choisir le type d'IA
+        self.ai_game_player1 = AIGame(self.mancala, self.player_selector.player1_status,"player1")
+        self.ai_game_player2 = AIGame(self.mancala, self.player_selector.player2_status,"player2")
+        # Définir pour quel joueur l'IA joue
+        
+        
         self.kalaha_color = (255, 215, 0)
         self.well_color = (139, 69, 19)
         self.stone_color = (255, 0, 0)
@@ -42,8 +49,10 @@ class MancalaScreen(BaseScreen):
             button.update(mouse_pos)
             button.draw(self.screen)
         self.light_well()
-        if (self.player_selector.player1_status == "AI" and self.mancala.current_player == "player1") or (self.player_selector.player2_status == "AI" and self.mancala.current_player == "player2"):
-            self.ai_game.ai_move()
+        if (self.ai_game_player1 and self.mancala.current_player == "player1"):
+            self.ai_game_player1.ai_move()
+        elif (self.ai_game_player2 and self.mancala.current_player == "player2"):
+            self.ai_game_player2.ai_move()
         #self.draw_stones()
 
 
@@ -127,4 +136,3 @@ class MancalaScreen(BaseScreen):
                 elif self.mancala.current_player == "player2" and self.mancala.board[index+7] > 0:
                     # Highlight player 2's wells
                     pygame.draw.rect(self.screen, well_highlight_color, player2_well_pos, well_highlight_width)
-        
