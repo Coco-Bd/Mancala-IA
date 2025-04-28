@@ -43,26 +43,9 @@ def initialize_files():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT,
-        player1 TEXT,
-        player2 TEXT,
-        winner TEXT,
-        total_moves INTEGER
-    )
-    """)
-    conn.commit()
-    conn.close()
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS moves (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        game_id INTEGER,
-        player TEXT,
-        board_state TEXT,
-        move_made INTEGER,
-        result_state TEXT,
-        FOREIGN KEY (game_id) REFERENCES games(id)
+        moves TEXT,         -- Simple string like "4;8;2;9;5;7"
+        winner TEXT,        -- "player1" or "player2"
+        count INTEGER DEFAULT 1
     )
     """)
     conn.commit()

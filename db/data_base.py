@@ -3,30 +3,21 @@ import sqlite3
 conn = sqlite3.connect("mancala_ai.db")
 cursor = conn.cursor()
 
-# Table for storing complete games
+# Create a super simple table for games
+cursor.execute("DROP TABLE IF EXISTS games")
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT,
-    player1 TEXT,
-    player2 TEXT,
-    winner TEXT,
-    total_moves INTEGER
+    moves TEXT,         -- Simple string like "4;8;2;9;5;7"
+    winner TEXT,        -- "player1" or "player2"
+    count INTEGER DEFAULT 1
 )
 """)
 
-# Table for storing individual moves
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS moves (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    game_id INTEGER,
-    player TEXT,
-    board_state TEXT,
-    move_made INTEGER,
-    result_state TEXT,
-    FOREIGN KEY (game_id) REFERENCES games(id)
-)
-""")
+# Create an index for faster lookups
+cursor.execute("CREATE INDEX IF NOT EXISTS idx_moves ON games(moves)")
 
 conn.commit()
 conn.close()
+
+print("Database schema created - simple version")

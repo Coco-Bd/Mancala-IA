@@ -2,6 +2,8 @@ import pygame
 from src.utilities.screen_index import BaseScreen
 from src.game.mancala import MancalaPlatter
 from src.utilities.button import Button
+from src.utilities.select_player import PlayerSelector
+from src.game.ai_game import AIGame
 class MancalaScreen(BaseScreen):
     """Écran de jeu pour le Mancala avec une représentation logique de la direction du jeu."""
     
@@ -10,6 +12,9 @@ class MancalaScreen(BaseScreen):
         super().__init__(screen, screen_width, screen_height)
         pygame.display.set_caption("Mancala")
         self.mancala = MancalaPlatter()
+        self.ai_game = AIGame(self.mancala)
+        self.player_selector = PlayerSelector(self.mancala)
+        self.player_selector.check_player_type()
         self.kalaha_color = (255, 215, 0)
         self.well_color = (139, 69, 19)
         self.stone_color = (255, 0, 0)
@@ -32,10 +37,13 @@ class MancalaScreen(BaseScreen):
         self.draw_kalahas()
         self.update_score()
         mouse_pos = pygame.mouse.get_pos()
+        # if playeur 1 not is IA print que les premiers boutons elif player2 not is IA print que les dernier 
         for button in self.buttons:
             button.update(mouse_pos)
             button.draw(self.screen)
         self.light_well()
+        if (self.player_selector.player1_status == "AI" and self.mancala.current_player == "player1") or (self.player_selector.player2_status == "AI" and self.mancala.current_player == "player2"):
+            self.ai_game.ai_move()
         #self.draw_stones()
 
 
@@ -51,21 +59,21 @@ class MancalaScreen(BaseScreen):
                60, 60, str(self.mancala.board[index]), 
               color=self.well_color, hover_color=(180, 140, 100), 
               text_color=(255, 215, 0), font_size=24,
-              action=lambda i=index: self.select_well(i)))
+              action=lambda i=index: self.select_well(i) if self.player_selector.player1_status == "Human" else None))
         for index in range(len(self.pit_x)):
             # Draw player 2 wells (bottom row)
             buttons.append(Button(self.pit_x[-index-1] + 40, self.kalaha_y[0] + self.well_height + 50, 
                60, 60, str(self.mancala.board[index+7]), 
               color=self.well_color, hover_color=(180, 140, 100), 
               text_color=(255, 215, 0), font_size=24,
-              action=lambda i=index: self.select_well(i+7)))
+              action=lambda i=index: self.select_well(i+7) if self.player_selector.player2_status == "Human" else None))
             
         return buttons
     
     def select_well(self, index):
         if self.mancala.finish_game:
             return
-        if ((self.mancala.current_player == "player1" and index in range(6)) or (self.mancala.current_player == "player2" and index in range(7, 14))) and self.mancala.board[index] > 0:
+        if ((self.mancala.current_player == "player1" and index in range(self.mancala.player1_kalahas)) or (self.mancala.current_player == "player2" and index in range(7, self.mancala.player2_kalahas))) and self.mancala.board[index] > 0:
             self.mancala.make_move_helper(index)
         else:
             print("Invalid selection")
@@ -78,13 +86,13 @@ class MancalaScreen(BaseScreen):
             else:
                 self.buttons[index].text = str(self.mancala.board[index+1])
         # Player 1 score (right kalaha)
-        score1_text = self.font.render(str(self.mancala.board[6]), True, (255, 255, 255))
+        score1_text = self.font.render(str(self.mancala.board[self.mancala.player1_kalahas]), True, (255, 255, 255))
         score1_x = self.kalaha_x[0] + (self.kalaha_width - score1_text.get_width()) // 2
         score1_y = self.kalaha_y[0] + (self.kalaha_height - score1_text.get_height()) // 2
         self.screen.blit(score1_text, (score1_x, score1_y))
-
+        
         # Player 2 score (left kalaha)
-        score2_text = self.font.render(str(self.mancala.board[13]), True, (255, 255, 255))
+        score2_text = self.font.render(str(self.mancala.board[self.mancala.player2_kalahas]), True, (255, 255, 255))
         score2_x = self.kalaha_x[1] + (self.kalaha_width - score2_text.get_width()) // 2
         score2_y = self.kalaha_y[1] + (self.kalaha_height - score2_text.get_height()) // 2
         self.screen.blit(score2_text, (score2_x, score2_y))
